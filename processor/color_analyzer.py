@@ -5,12 +5,25 @@ from pathlib import Path
 from typing import Dict, Tuple
 
 from colorthief import ColorThief
+import base64
+from PIL import Image
+import io
 
 RgbColor = Tuple[int, int, int]
 
 
 def _rgb_to_hex(color: RgbColor) -> str:
     return "#{:02X}{:02X}{:02X}".format(*color)
+
+def _image_to_base64(path: str, size: tuple = (300, 300)) -> str:
+    with Image.open(path) as img:
+        img = img.convert("RGB")
+        img = img.resize(size, Image.LANCZOS)
+        
+        buffer = io.BytesIO()
+        img.save(buffer, format="JPEG", quality=85)
+        
+        return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
 def analyze_cover(cover_path: str | Path) -> Path:
@@ -29,9 +42,12 @@ def analyze_cover(cover_path: str | Path) -> Path:
     primary, secondary, accent = palette[0], palette[1], palette[2]
 
     theme_data: Dict[str, str] = {
-        "primary": _rgb_to_hex(primary),
-        "secondary": _rgb_to_hex(secondary),
-        "accent": _rgb_to_hex(accent),
+        "color_pallete": {
+            "primary": _rgb_to_hex(primary),
+            "secondary": _rgb_to_hex(secondary),
+            "accent": _rgb_to_hex(accent),
+        },
+        "image_base64": _image_to_base64(cover_file),
     }
 
     output_path = cover_file.parent / "theme.json"

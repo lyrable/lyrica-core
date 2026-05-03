@@ -48,6 +48,7 @@ def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
     alignment_path = song_dir / "alignment.json"
     master_sync_path = song_dir / "master_synch.json"
     cover_path = song_dir / "cover.jpg"
+    theme_path = song_dir / "theme.json"
 
     song_dir.mkdir(parents=True, exist_ok=True)
     audio_path.parent.mkdir(parents=True, exist_ok=True)
@@ -112,6 +113,6 @@ def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
         _debug_print("lyrics do not exist, skipping creation of master_alignment.")
     else:
         _debug_print("Couldnt find master_sync.json, parsing the alignment and rhythm...")
-        quantize_alignment(alignment_path, rhythm_path, song_dir)
+        quantize_alignment(alignment_path, rhythm_path, theme_path, title, artist)
 
     return lyrics, audio_path, alignment_path

@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import json
 import math
+import time
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -35,16 +36,23 @@ def _subbeat_to_beat_id(subbeat_index: int) -> str:
 def quantize_alignment(
     alignment_path: str | Path,
     rhythm_path: str | Path,
-    output_path: str | Path | None = None,
+    theme_path: str | Path,
+    orig_name: str,
+    orig_artist: str,
     global_offset_seconds: float = GLOBAL_OFFSET_SECONDS,
 ) -> Path:
     alignment_file = Path(alignment_path)
     rhythm_file = Path(rhythm_path)
+    theme_file = Path(theme_path)
 
     alignment_data = _load_json(alignment_file)
     rhythm_data = _load_json(rhythm_file)
+    theme_data = _load_json(theme_file)
+
+    current_time = time.strftime("%a, %d %b %Y %I:%M:%S %p %Z", time.gmtime())
 
     bpm = _safe_float(rhythm_data.get("bpm"), "bpm")
+    vibe = rhythm_data.get("vibe") or []
     beats = rhythm_data.get("beats") or []
     if bpm <= 0:
         raise ValueError(f"Invalid BPM value: {bpm}")
@@ -91,8 +99,21 @@ def quantize_alignment(
         )
 
     master_data: Dict[str, Any] = {
+        "data": {
+            "orig_name": orig_name,
+            "orig_artist": orig_artist,
+            "album": "placeholder",
+            "release_date": "1970.01.01"
+        },
+        "metadata": {
+            "added": current_time,
+            "updated": current_time,
+            "times_loaded": 1,
+        },
         "bpm": bpm,
         "offset_seconds": global_offset_seconds,
+        "vibe": vibe,
+        "theme": theme_data,
         "words": quantized_words,
     }
 
