@@ -70,26 +70,23 @@ async def watch_media_changes(poll_interval: float = POLL_INTERVAL, debug: bool 
                 media_info["playback_status"],
             )
             if current_signature != previous_signature and media_info["playback_status"] == 'Playing':
-                lyrics, _audio_path, aligned_path = get_song_data(
+                aligned_path = get_song_data(
                     artist=media_info["artist"],
                     title=media_info["title"],
                 )
-
-                entry_point = time.time() - start_time
-                track_key = (media_info["title"], media_info["artist"])
-                visualise(aligned_path, entry_point, track_key)
-                
-                if debug:
-                    print(
-                        f'Currently playing: {media_info["title"]} '
-                        f'by {media_info["artist"]}. '
-                        f'Status: {media_info["playback_status"]}'
-                    )
-                    if lyrics:
-                        print("Successfully fetched lyrics")
-                        print(lyrics)
-                    else:
-                        print("oops! couldnt fetch lyrics")
+                if aligned_path:
+                    entry_point = time.time() - start_time
+                    track_key = (media_info["title"], media_info["artist"])
+                    visualise(aligned_path, entry_point, track_key)
+                    
+                    if debug:
+                        print(
+                            f'Currently playing: {media_info["title"]} '
+                            f'by {media_info["artist"]}. '
+                            f'Status: {media_info["playback_status"]}'
+                        )
+                else:
+                    print("Oops! the song is instrumental! we cannot handle this one, yet...")
                 previous_signature = current_signature
 
         await asyncio.sleep(poll_interval)

@@ -46,7 +46,7 @@ def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
     rhythm_path = song_dir / "rhythm.json"
     vocals_path = song_dir / "vocals.wav"
     alignment_path = song_dir / "alignment.json"
-    master_sync_path = song_dir / "master_synch.json"
+    master_sync_path = song_dir / "master_sync.json"
     cover_path = song_dir / "cover.jpg"
     theme_path = song_dir / "theme.json"
 
@@ -59,60 +59,72 @@ def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
     fetched_lyrics: Optional[str] = None
     cover_url: Optional[str] = None
 
-    if need_lyrics or need_cover:
-        fetched_lyrics, cover_url = fetch_song_data(artist, title)
-
-    if lyrics_path.exists():
-        _debug_print("Lyrics found.")
-        lyrics = lyrics_path.read_text(encoding="utf-8")
-    else:
-        _debug_print("Lyrics not found, downloading...")
-        lyrics = fetched_lyrics or ""
-        lyrics_path.write_text(lyrics, encoding="utf-8")
-
-    if cover_path.exists():
-        _debug_print("Cover found.")
-    else:
-        _debug_print("Cover not found, downloading...")
-        if cover_url:
-            download_cover_image(cover_url, cover_path)
-            analyze_cover(cover_path)
-            _debug_print("Broke the cover down by primary colors...")
-        else:
-            _debug_print("Cover URL not found in Genius response.")
-
-    if audio_path.exists():
-        _debug_print("Audio found.")
-    else:
-        _debug_print("Audio not found, downloading...")
-        audio_path = download_audio(artist, title, audio_path)
-
-    if instrumental_path.exists() and vocals_path.exists():
-        _debug_print("Vocals and Instrumental (separated) exist.")
-    else:
-        _debug_print("Vocals and instrumental not found, separating...")
-        get_vocals(audio_path, song_dir)
-
-    if rhythm_path.exists():
-        _debug_print("rhythm file exists.")
-    else:
-        _debug_print("breaking down rhythm patterns...")
-        analyze_audio(instrumental_path)
-
-    if alignment_path.exists():
-        _debug_print("alignment.json exists.")
-    elif not lyrics_path.read_text(encoding="utf-8"):
-        _debug_print("Couldnt find the lyrics, the song is instrumental/lyrics do not exist.")
-    else:
-        _debug_print("Couldnt find alignment.json, aligning...")
-        align_lyrics(vocals_path, lyrics_path)
-
     if master_sync_path.exists():
         _debug_print("Found master_sync.json. proceeding...")
-    elif not lyrics_path.read_text(encoding="utf-8"):
-        _debug_print("lyrics do not exist, skipping creation of master_alignment.")
     else:
-        _debug_print("Couldnt find master_sync.json, parsing the alignment and rhythm...")
-        quantize_alignment(alignment_path, rhythm_path, theme_path, title, artist)
+        _debug_print("Couldnt find master_sync.json, catching up the whole pipeline...")
+        if need_lyrics or need_cover:
+            fetched_lyrics, cover_url = fetch_song_data(artist, title)
 
-    return lyrics, audio_path, alignment_path
+        if lyrics_path.exists():
+            _debug_print("Lyrics found.")
+            lyrics = lyrics_path.read_text(encoding="utf-8")
+        else:
+            _debug_print("Lyrics not found, downloading...")
+            lyrics = fetched_lyrics or ""
+            lyrics_path.write_text(lyrics, encoding="utf-8")
+        
+        if lyrics_path.read_text(encoding="utf-8"):
+            is_instrumental = False
+        else: 
+            is_instrumental = True
+
+        if cover_path.exists():
+            _debug_print("Cover found.")
+        else:
+            _debug_print("Cover not found, downloading...")
+            if cover_url:
+                download_cover_image(cover_url, cover_path)
+                analyze_cover(cover_path)
+                _debug_print("Broke the cover down by primary colors...")
+            else:
+                _debug_print("Cover URL not found in Genius response.")
+
+        if audio_path.exists():
+            _debug_print("Audio found.")
+        else:
+            _debug_print("Audio not found, downloading...")
+            audio_path = download_audio(artist, title, audio_path)
+
+        if instrumental_path.exists() and vocals_path.exists():
+            _debug_print("Vocals and Instrumental (separated) exist.")
+        elif is_instrumental:
+            _debug_print("Song is already instrumental, skipping separation...")
+        else:
+            _debug_print("Vocals and instrumental not found, separating...")
+            get_vocals(audio_path, song_dir)
+
+        if rhythm_path.exists():
+            _debug_print("rhythm file exists.")
+        elif is_instrumental and audio_path.exists():
+            _debug_print("breaking down rhythm patterns using original audio...")
+            analyze_audio(audio_path)
+        else:
+            _debug_print("breaking down rhythm patterns using instrumental...")
+            analyze_audio(instrumental_path)
+
+        if alignment_path.exists():
+            _debug_print("alignment.json exists.")
+        elif is_instrumental:
+            _debug_print("Couldnt find the lyrics, the song is instrumental/lyrics do not exist.")
+        else:
+            _debug_print("Couldnt find alignment.json, aligning...")
+            align_lyrics(vocals_path, lyrics_path)
+
+        if is_instrumental:
+            _debug_print("lyrics do not exist, skipping creation of master_alignment.")
+        else:
+            _debug_print("parsing the alignment and rhythm to create master_sync.json...")
+            quantize_alignment(alignment_path, rhythm_path, theme_path, title, artist)
+
+    return alignment_path
