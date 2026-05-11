@@ -11,3 +11,5 @@ SERVER_MODE = True # toggles pytorch and other AI, only uses already proceeded a
 WHISPER_MODEL = "large-v2" # model choice for WhisperX 
 GLOBAL_OFFSET_SECONDS = 0.0 # 
 SNAP_TOLERANCE_RATIO = 0.45 # 
+KEEP_PIPELINE_FILES = False # determines if pipeline files (instrumentals, lyrics etc) stay
+                           #on the drive after master_sync.json is created

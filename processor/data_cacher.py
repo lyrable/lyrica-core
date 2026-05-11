@@ -16,14 +16,23 @@ from processor.color_analyzer import analyze_cover
 from colorthief import ColorThief
 
 try:
-    from config import SERVER_MODE, PIPELINE_DEBUG_ACTIVE, CLEAR_PIPELINE_ON_NEW_SONG
+    from config import SERVER_MODE, PIPELINE_DEBUG_ACTIVE, CLEAR_PIPELINE_ON_NEW_SONG, KEEP_PIPELINE_FILES
 except ModuleNotFoundError:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
-    from config import SERVER_MODE, PIPELINE_DEBUG_ACTIVE, CLEAR_PIPELINE_ON_NEW_SONG
+    from config import SERVER_MODE, PIPELINE_DEBUG_ACTIVE, CLEAR_PIPELINE_ON_NEW_SONG, KEEP_PIPELINE_FILES
 
 def _debug_print(*args: str, **kwargs: str):
     if PIPELINE_DEBUG_ACTIVE:
         print("[PIPELINE DEBUG]", *args, **kwargs)
+
+def _clean_song_dir(directory: str, keep_files: list[str]):
+    for file_path in directory.iterdir():
+        print(file_path)
+        if file_path.exists() and file_path not in keep_files:
+            try:
+                file_path.unlink()
+            except Exception as e:
+                _debug_print(f"Error deleting {file_path}: {e}")
         
 def _slugify(value: str) -> str:
     normalized = anyascii.anyascii(value)
@@ -126,5 +135,9 @@ def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
         else:
             _debug_print("parsing the alignment and rhythm to create master_sync.json...")
             quantize_alignment(alignment_path, rhythm_path, theme_path, title, artist)
+            if not KEEP_PIPELINE_FILES:
+                keep = [master_sync_path, instrumental_path, alignment_path]
+                _clean_song_dir(song_dir, keep)
+                _debug_print("Cleaned leftover pipeline files.")
 
     return alignment_path
