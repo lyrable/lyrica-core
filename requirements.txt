@@ -28,4 +28,8 @@ flask
 flask-socketio
 requests
 
+fastapi
+uvicorn[standard]
+websockets
+
 pymongo[srv]

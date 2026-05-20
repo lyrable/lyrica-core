@@ -13,7 +13,6 @@ from processor.audio_analyzer import analyze_audio
 from processor.quantizer import quantize_alignment
 from processor.color_analyzer import analyze_cover
 
-from colorthief import ColorThief
 
 try:
     from config import SERVER_MODE, PIPELINE_DEBUG_ACTIVE, CLEAR_PIPELINE_ON_NEW_SONG, KEEP_PIPELINE_FILES
@@ -27,7 +26,6 @@ def _debug_print(*args: str, **kwargs: str):
 
 def _clean_song_dir(directory: str, keep_files: list[str]):
     for file_path in directory.iterdir():
-        print(file_path)
         if file_path.exists() and file_path not in keep_files:
             try:
                 file_path.unlink()
@@ -136,8 +134,8 @@ def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
             _debug_print("parsing the alignment and rhythm to create master_sync.json...")
             quantize_alignment(alignment_path, rhythm_path, theme_path, title, artist)
             if not KEEP_PIPELINE_FILES:
-                keep = [master_sync_path, instrumental_path, alignment_path]
+                keep = [master_sync_path, instrumental_path]
                 _clean_song_dir(song_dir, keep)
                 _debug_print("Cleaned leftover pipeline files.")
 
-    return alignment_path
+    return master_sync_path
