@@ -7,6 +7,10 @@ from typing import Any
 import anyascii
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
+#from processor.data_cacher import get_song_data
+#from server.database import get_track
+from tuna import start_server
+
 app = FastAPI(title="Syllable Visualizer")
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
@@ -24,6 +28,7 @@ MOCK_MASTER_SYNC: dict[str, Any] = {
     ],
 }
 
+start_server()
 
 def _slugify(value: str) -> str:
     normalized = anyascii.anyascii(value).strip().lower()

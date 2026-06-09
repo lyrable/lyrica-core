@@ -10,7 +10,7 @@ from typing import Tuple
 
 import imageio_ffmpeg
 
-demucs_exe = Path(sys.executable).parent / "demucs.exe"
+python_exe = sys.executable
 
 def _ensure_ffmpeg_on_path() -> None:
     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
@@ -37,17 +37,22 @@ def get_vocals(input_path: str | Path, output_dir: str | Path) -> Tuple[Path, Pa
     _ensure_ffmpeg_on_path()
 
     start_time = time.perf_counter()
-    subprocess.run(
-    [
-        str(demucs_exe),
+    
+    cmd = [
+        str(python_exe),
+        "-m", "demucs",
         "--two-stems", "vocals",
         "-n", "htdemucs",
         "-d", "cuda",
         "-o", str(cache_dir),
         str(source),
-    ],
-    check=True,
-)
+    ]
+    
+    subprocess.run(
+        cmd,
+        check=True,
+    )
+    
     elapsed_seconds = time.perf_counter() - start_time
     print(f"Separation completed in {elapsed_seconds:.2f} seconds.")
 

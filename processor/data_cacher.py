@@ -3,6 +3,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Optional, Tuple
+from yt_dlp.utils import DownloadError
 import anyascii
 
 from api.genius import download_cover_image, fetch_song_data
@@ -101,7 +102,10 @@ def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
             _debug_print("Audio found.")
         else:
             _debug_print("Audio not found, downloading...")
-            audio_path = download_audio(artist, title, audio_path)
+            try:
+                audio_path = download_audio(artist, title, audio_path)
+            except DownloadError as e:
+                print(f"[LYRICA ERROR] Ошибка скачивания с YouTube: {e}")
 
         if instrumental_path.exists() and vocals_path.exists():
             _debug_print("Vocals and Instrumental (separated) exist.")

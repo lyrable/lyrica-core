@@ -13,3 +13,4 @@ GLOBAL_OFFSET_SECONDS = 0.0 #
 SNAP_TOLERANCE_RATIO = 0.45 # 
 KEEP_PIPELINE_FILES = False # determines if pipeline files (instrumentals, lyrics etc) stay
                            #on the drive after master_sync.json is created
+YT_COOKIES_LOCATION = "D:/lyrica/venv/cookies.txt"
