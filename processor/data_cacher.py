@@ -72,7 +72,7 @@ def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
     else:
         _debug_print("Couldnt find master_sync.json, catching up the whole pipeline...")
         if need_lyrics or need_cover:
-            fetched_lyrics, cover_url = fetch_song_data(artist, title)
+            fetched_lyrics, cover_url, album_name, release_date = fetch_song_data(artist, title)
 
         if lyrics_path.exists():
             _debug_print("Lyrics found.")

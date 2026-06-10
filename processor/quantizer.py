@@ -12,7 +12,7 @@ except ModuleNotFoundError:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
     from config import GLOBAL_OFFSET_SECONDS, SNAP_TOLERANCE_RATIO
 
-from syllabifier import syllabify_word
+from processor.syllabifier import syllabify_word
 
 
 def _load_json(path: Path) -> Any:

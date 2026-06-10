@@ -8,10 +8,10 @@ from typing import Any, Dict, Optional
 from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager
 
 try:
-    from config import POLL_INTERVAL, WIN_DEBUG_ACTIVE
+    from config import POLL_INTERVAL, WIN_DEBUG_ACTIVE, VISUALISE_LYRICS
 except ModuleNotFoundError:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
-    from config import POLL_INTERVAL, WIN_DEBUG_ACTIVE
+    from config import POLL_INTERVAL, WIN_DEBUG_ACTIVE, VISUALISE_LYRICS
 
 from processor.data_cacher import get_song_data
 from frontend.console_visualiser import stop_visualiser, visualise
@@ -58,7 +58,8 @@ async def watch_media_changes(poll_interval: float = POLL_INTERVAL, debug: bool 
         if media_info is None:
             if had_session:
                 print("No active media session.")
-                stop_visualiser()
+                if VISUALISE_LYRICS:
+                    stop_visualiser()
                 had_session = False
                 previous_signature = None
         else:
@@ -77,7 +78,8 @@ async def watch_media_changes(poll_interval: float = POLL_INTERVAL, debug: bool 
                 if aligned_path:
                     entry_point = time.time() - start_time
                     track_key = (media_info["title"], media_info["artist"])
-                    visualise(aligned_path, entry_point, track_key)
+                    if VISUALISE_LYRICS:
+                        visualise(aligned_path, entry_point, track_key)
                     
                     if debug:
                         print(

@@ -25,14 +25,14 @@ def _search_song(genius: lyricsgenius.Genius, artist: str, title: str):
         song = genius.search_song(title, artist.split(",")[0].strip())
     return song
 
-def fetch_song_data(artist: str, title: str) -> Tuple[Optional[str], Optional[str]]:
+def fetch_song_data(artist: str, title: str) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
     if not artist or not title:
-        return None, None
+        return None, None, None, None
 
     token = (GENIUS_ACCESS_TOKEN or "").strip()
     if not token:
         print("No Genius Token found! Make sure to setup the .env file correctly (as in the readme.py)")
-        return None, None
+        return None, None, None, None
 
     cleaned_title = _clean_title(title)
 
@@ -41,7 +41,7 @@ def fetch_song_data(artist: str, title: str) -> Tuple[Optional[str], Optional[st
         song = _search_song(genius, artist, cleaned_title)
 
         if not song:
-            return None, None
+            return None, None, None, None
 
         lyrics: Optional[str] = None
         if song.lyrics:
@@ -49,10 +49,13 @@ def fetch_song_data(artist: str, title: str) -> Tuple[Optional[str], Optional[st
             lyrics = re.sub(r"\d*Embed$", "", lyrics).strip()
 
         cover_url = getattr(song, "song_art_image_url", None)
-        return lyrics, cover_url
+        album_data = getattr(song, "album", None)
+        album_name = album_data["name"]
+        release_date = album_data["release_date_for_display"]
+        return lyrics, cover_url, album_name, release_date
     except Exception as e:
         print(f"Genius API Error: {e}")
-        return None, None
+        return None, None, None, None
 
 def download_cover_image(image_url: str, output_path: Path) -> Optional[Path]:
     if not image_url:

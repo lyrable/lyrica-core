@@ -18,7 +18,7 @@ def download_audio(artist: str, title: str, output_path: Path) -> Path:
     output_base = output_path.with_suffix("")
     query = f"ytsearch1:{artist} - {title}"
     ydl_opts = {
-    'format': 'bestaudio/bestvideo+bestaudio/best',
+    'format': 'bestaudio/best',
     'cookiefile': str(Path(YT_COOKIES_LOCATION)),
     'extractor_args': {
         'youtube': {
