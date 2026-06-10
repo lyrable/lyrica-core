@@ -23,24 +23,11 @@ os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 _LINGUA_TO_WHISPERX = {
     Language.ENGLISH: "en",
-    Language.JAPANESE: "ja",
-    Language.KOREAN: "ko",
-    Language.FRENCH: "fr",
-    Language.GERMAN: "de",
-    Language.SPANISH: "es",
     Language.RUSSIAN: "ru",
-    Language.ITALIAN: "it",
-    Language.PORTUGUESE: "pt",
-    Language.CHINESE: "zh",
 }
 
 _detector = LanguageDetectorBuilder.from_languages(*_LINGUA_TO_WHISPERX.keys()).build()
 
-try:
-    from config import WHISPER_MODEL
-except ModuleNotFoundError:
-    sys.path.append(str(Path(__file__).resolve().parents[1]))
-    from config import WHISPER_MODEL
 
 if sys.platform == 'win32': #костыль, увы
     venv_site_packages = os.path.join(os.path.dirname(sys.executable), "Lib", "site-packages")

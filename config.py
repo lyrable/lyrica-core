@@ -8,9 +8,9 @@ SERVER_MODE = True # toggles pytorch and other AI, only uses already proceeded a
 
 # SETTINGS BELOW ARE ONLY APPLIED IF SERVER_MODE = TRUE
 
-WHISPER_MODEL = "large-v2" # model choice for WhisperX 
 GLOBAL_OFFSET_SECONDS = 0.0 # 
 SNAP_TOLERANCE_RATIO = 0.45 # 
 KEEP_PIPELINE_FILES = False # determines if pipeline files (instrumentals, lyrics etc) stay
-                           #on the drive after master_sync.json is created
-YT_COOKIES_LOCATION = "D:/lyrica/venv/cookies.txt"
+                            # on the drive after master_sync.json is created
+YT_COOKIES_LOCATION = "D:/lyrica/venv/cookies.txt" # path to cookies file, exported from youtube.com (via "Get cookies.txt LOCALLY" plugin)
+VISUALISE_LYRICS = False # toggles lyrics display in console after the song has been proceeded by the backend
