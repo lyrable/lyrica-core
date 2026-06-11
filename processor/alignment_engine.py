@@ -66,7 +66,7 @@ def _clean_lyrics(raw_text: str) -> str:
     cleaned = re.sub(r"\s+", " ", cleaned)
     return cleaned.strip()
 
-def _detect_language(text: str) -> str:
+def detect_language(text: str) -> str:
     lang = _detector.detect_language_of(text)
     code = _LINGUA_TO_WHISPERX.get(lang)
     if not code:
@@ -100,7 +100,7 @@ def align_lyrics(audio_path: str | Path, text_path: str | Path) -> Path:
             return
 
         def _run_alignment(device: str, batch_size: int) -> Dict:
-            language_code = _detect_language(lyrics)
+            language_code = detect_language(lyrics)
             print(f"Detected language: {language_code}")
 
             full_segment = [{

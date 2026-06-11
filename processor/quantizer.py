@@ -12,7 +12,7 @@ except ModuleNotFoundError:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
     from config import GLOBAL_OFFSET_SECONDS, SNAP_TOLERANCE_RATIO
 
-from processor.syllabifier import syllabify_word
+from processor.syllabifier import syllabify_word, Lang
 
 
 def _load_json(path: Path) -> Any:
@@ -41,6 +41,7 @@ def quantize_alignment(
     theme_path: str | Path,
     orig_name: str,
     orig_artist: str,
+    lang: str,
     album_id: str | None = None,
     global_offset_seconds: float = GLOBAL_OFFSET_SECONDS,
 ) -> Path:
@@ -84,9 +85,11 @@ def quantize_alignment(
         syllables = syllabify_word(word, duration)
 
         # format: [word, beat_id, duration, [syllables offsets]] or [word, beat_id, duration] if there is only one syllable
-        entry: list = [word, beat_id, duration]
-        if syllables:
-            entry.append(syllables)
+        syllabified_word, offsets = syllabify_word(word, duration, lang)
+        
+        entry: list = [syllabified_word, beat_id, duration]
+        if offsets:
+            entry.append(offsets)
         words.append(entry)
 
     theme_data.pop("image_base64", None) # album cover is now taken from album_id in the database

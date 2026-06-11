@@ -9,7 +9,7 @@ import anyascii
 from api.genius import download_cover_image, fetch_song_data
 from api.youtube import download_audio
 from processor.audio_separator import get_vocals
-from processor.alignment_engine import align_lyrics
+from processor.alignment_engine import align_lyrics, detect_language
 from processor.audio_analyzer import analyze_audio
 from processor.quantizer import quantize_alignment
 from processor.color_analyzer import analyze_cover
@@ -136,7 +136,8 @@ def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
             _debug_print("lyrics do not exist, skipping creation of master_alignment.")
         else:
             _debug_print("parsing the alignment and rhythm to create master_sync.json...")
-            quantize_alignment(alignment_path, rhythm_path, theme_path, title, artist)
+            language = detect_language(lyrics)
+            quantize_alignment(alignment_path, rhythm_path, theme_path, title, artist, language)
             if not KEEP_PIPELINE_FILES:
                 keep = [master_sync_path, instrumental_path]
                 _clean_song_dir(song_dir, keep)
