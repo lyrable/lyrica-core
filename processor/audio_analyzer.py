@@ -62,4 +62,4 @@ def analyze_audio(audio_path: str | Path) -> Path:
         json.dumps(rhythm_data, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    return output_path
+    return output_path, _to_float(tempo)

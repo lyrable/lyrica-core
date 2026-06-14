@@ -15,7 +15,7 @@ RgbColor = Tuple[int, int, int]
 def _rgb_to_hex(color: RgbColor) -> str:
     return "#{:02X}{:02X}{:02X}".format(*color)
 
-def _image_to_base64(path: str, size: tuple = (300, 300)) -> str:
+def image_to_base64(path: str, size: tuple = (300, 300)) -> str:
     with Image.open(path) as img:
         img = img.convert("RGB")
         img = img.resize(size, Image.LANCZOS)
@@ -47,7 +47,7 @@ def analyze_cover(cover_path: str | Path) -> Path:
             "secondary": _rgb_to_hex(secondary),
             "accent": _rgb_to_hex(accent),
         },
-        "image_base64": _image_to_base64(cover_file),
+        "image_base64": image_to_base64(cover_file),
     }
 
     output_path = cover_file.parent / "theme.json"

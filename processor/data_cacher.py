@@ -12,14 +12,15 @@ from processor.audio_separator import get_vocals
 from processor.alignment_engine import align_lyrics, detect_language
 from processor.audio_analyzer import analyze_audio
 from processor.quantizer import quantize_alignment
-from processor.color_analyzer import analyze_cover
+from processor.color_analyzer import analyze_cover, image_to_base64
+from server.database import get_pool, get_track, upsert_track, insert_sync, upsert_album
 
 
 try:
-    from config import SERVER_MODE, PIPELINE_DEBUG_ACTIVE, CLEAR_PIPELINE_ON_NEW_SONG, KEEP_PIPELINE_FILES
+    from config import SERVER_MODE, PIPELINE_DEBUG_ACTIVE, CLEAR_PIPELINE_ON_NEW_SONG, KEEP_PIPELINE_FILES, DATABASE_URL
 except ModuleNotFoundError:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
-    from config import SERVER_MODE, PIPELINE_DEBUG_ACTIVE, CLEAR_PIPELINE_ON_NEW_SONG, KEEP_PIPELINE_FILES
+    from config import SERVER_MODE, PIPELINE_DEBUG_ACTIVE, CLEAR_PIPELINE_ON_NEW_SONG, KEEP_PIPELINE_FILES, DATABASE_URL
 
 def _debug_print(*args: str, **kwargs: str):
     if PIPELINE_DEBUG_ACTIVE:
@@ -40,11 +41,12 @@ def _slugify(value: str) -> str:
     normalized = re.sub(r"[^a-z0-9_\-]", "", normalized)
     return normalized.strip("_")
 
-def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
+async def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
     if CLEAR_PIPELINE_ON_NEW_SONG and PIPELINE_DEBUG_ACTIVE:
         os.system('cls' if os.name == 'nt' else 'clear')
 
     _debug_print(f"Proceeding song: {title} by {artist}")
+    pool = await get_pool(DATABASE_URL) # placeholder, will move to anpther script when moving away from windows.py root
 
     folder_name = _slugify(f"{artist} {title}")
     song_dir = Path("data") / folder_name
@@ -67,7 +69,7 @@ def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
     fetched_lyrics: Optional[str] = None
     cover_url: Optional[str] = None
 
-    if master_sync_path.exists():
+    if await get_track(pool, folder_name):
         _debug_print("Found master_sync.json. proceeding...")
     else:
         _debug_print("Couldnt find master_sync.json, catching up the whole pipeline...")
@@ -84,7 +86,7 @@ def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
         
         if lyrics_path.read_text(encoding="utf-8"):
             is_instrumental = False
-        else: 
+        else:
             is_instrumental = True
 
         if cover_path.exists():
@@ -119,10 +121,10 @@ def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
             _debug_print("rhythm file exists.")
         elif is_instrumental and audio_path.exists():
             _debug_print("breaking down rhythm patterns using original audio...")
-            analyze_audio(audio_path)
+            bpm = analyze_audio(audio_path)
         else:
             _debug_print("breaking down rhythm patterns using instrumental...")
-            analyze_audio(instrumental_path)
+            bpm = analyze_audio(instrumental_path)
 
         if alignment_path.exists():
             _debug_print("alignment.json exists.")
@@ -138,7 +140,21 @@ def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
             _debug_print("parsing the alignment and rhythm to create master_sync.json...")
             language = detect_language(lyrics)
             quantize_alignment(alignment_path, rhythm_path, theme_path, title, artist, language)
-            if not KEEP_PIPELINE_FILES:
+        
+        _debug_print("Filling up the database...")
+        cover_base64 = image_to_base64(Path(cover_path))
+        album_id = await upsert_album(pool, album_name, artist, cover_base64, release_date)
+        track_id = await upsert_track(pool, {
+            "title": title,
+            "artist": artist,
+            "slug": folder_name,
+            "bpm": bpm,
+            "album_id": album_id,
+            #"duration": placeholder
+        })
+        await insert_sync(pool, track_id, Path(master_sync_path))
+
+        if not KEEP_PIPELINE_FILES:
                 keep = [master_sync_path, instrumental_path]
                 _clean_song_dir(song_dir, keep)
                 _debug_print("Cleaned leftover pipeline files.")

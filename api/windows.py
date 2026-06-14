@@ -71,7 +71,7 @@ async def watch_media_changes(poll_interval: float = POLL_INTERVAL, debug: bool 
                 media_info["playback_status"],
             )
             if current_signature != previous_signature and media_info["playback_status"] == 'Playing':
-                aligned_path = get_song_data(
+                aligned_path = await get_song_data(
                     artist=media_info["artist"],
                     title=media_info["title"],
                 )
