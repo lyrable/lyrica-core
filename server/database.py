@@ -5,11 +5,18 @@ import asyncpg
 
 _pool: asyncpg.Pool | None = None
 
+async def init_connection(conn):
+    await conn.set_type_codec(
+        'jsonb',
+        encoder=json.dumps,
+        decoder=json.loads,
+        schema='pg_catalog'
+    )
 
 async def get_pool(dsn: str) -> asyncpg.Pool:
     global _pool
     if _pool is None:
-        _pool = await asyncpg.create_pool(dsn, min_size=1, max_size=5)
+        _pool = await asyncpg.create_pool(dsn, min_size=1, max_size=5, init=init_connection)
     return _pool
 
 
@@ -62,8 +69,18 @@ async def insert_sync(pool: asyncpg.Pool, track_id: int,
     row = await pool.fetchrow(
         "INSERT INTO sync_versions (track_id,created_by,json_data) "
         "VALUES ($1,$2,$3) RETURNING id",
-        track_id, created_by, json.dumps(json_data, ensure_ascii=False),
+        track_id, created_by, json_data
     )
     return row["id"]
 
-
+async def get_sync(pool: asyncpg.Pool, track_id: int) -> dict | None:
+    row = await pool.fetchrow(
+        "SELECT * FROM sync_versions WHERE track_id=$1 "
+        "ORDER BY is_approved DESC, likes DESC LIMIT 1",
+        track_id,
+    )
+    if not row:
+        return None
+    r = dict(row)
+    r["json_data"] = json.loads(r["json_data"]) if isinstance(r["json_data"], str) else r["json_data"]
+    return r

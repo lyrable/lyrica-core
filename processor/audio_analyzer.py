@@ -24,6 +24,7 @@ def analyze_audio(audio_path: str | Path) -> Path:
         raise FileNotFoundError(f"Audio file not found: {audio_file}")
 
     y, sr = librosa.load(str(audio_file), sr=22050, mono=True)
+    duration = librosa.get_duration(y=y, sr=sr)
 
     # Rythm
     tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
@@ -62,4 +63,4 @@ def analyze_audio(audio_path: str | Path) -> Path:
         json.dumps(rhythm_data, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    return output_path, _to_float(tempo)
+    return output_path, _to_float(tempo), duration

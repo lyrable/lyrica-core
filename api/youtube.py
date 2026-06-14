@@ -20,9 +20,13 @@ def download_audio(artist: str, title: str, output_path: Path) -> Path:
     ydl_opts = {
     'format': 'bestaudio/best',
     'cookiefile': str(Path(YT_COOKIES_LOCATION)),
+    'javascript_runtimes': ['deno'],
+    'remote_components': ['ejs:github'], 
+    'allow_dynamic_mpd': True,
     'extractor_args': {
         'youtube': {
-            'player_client': ['android', 'web'],
+            'player_client': ['web_embedded', 'web'],
+            'remote_components': ['ejs:github'],
         }
     },
     'http_headers': {

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 from yt_dlp.utils import DownloadError
 import anyascii
+import json
 
 from api.genius import download_cover_image, fetch_song_data
 from api.youtube import download_audio
@@ -13,7 +14,7 @@ from processor.alignment_engine import align_lyrics, detect_language
 from processor.audio_analyzer import analyze_audio
 from processor.quantizer import quantize_alignment
 from processor.color_analyzer import analyze_cover, image_to_base64
-from server.database import get_pool, get_track, upsert_track, insert_sync, upsert_album
+from server.database import get_pool, get_track, upsert_track, insert_sync, upsert_album, get_sync
 
 
 try:
@@ -69,7 +70,8 @@ async def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
     fetched_lyrics: Optional[str] = None
     cover_url: Optional[str] = None
 
-    if await get_track(pool, folder_name):
+    track_id = await get_track(pool, folder_name)
+    if track_id:
         _debug_print("Found master_sync.json. proceeding...")
     else:
         _debug_print("Couldnt find master_sync.json, catching up the whole pipeline...")
@@ -121,10 +123,10 @@ async def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
             _debug_print("rhythm file exists.")
         elif is_instrumental and audio_path.exists():
             _debug_print("breaking down rhythm patterns using original audio...")
-            bpm = analyze_audio(audio_path)
+            _, bpm, duration = analyze_audio(audio_path)
         else:
             _debug_print("breaking down rhythm patterns using instrumental...")
-            bpm = analyze_audio(instrumental_path)
+            _, bpm, duration = analyze_audio(instrumental_path)
 
         if alignment_path.exists():
             _debug_print("alignment.json exists.")
@@ -150,12 +152,15 @@ async def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
             "slug": folder_name,
             "bpm": bpm,
             "album_id": album_id,
-            #"duration": placeholder
+            "duration": duration
         })
-        await insert_sync(pool, track_id, Path(master_sync_path))
+        if master_sync_path.exists():
+            with open(master_sync_path, "r", encoding="utf-8") as f:
+                json_data = json.load(f)
+                await insert_sync(pool, track_id, json_data, None)
 
         if not KEEP_PIPELINE_FILES:
-                keep = [master_sync_path, instrumental_path]
+                keep = [None]
                 _clean_song_dir(song_dir, keep)
                 _debug_print("Cleaned leftover pipeline files.")
 
