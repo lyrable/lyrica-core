@@ -45,7 +45,7 @@ async def upsert_artist(
     name: str,
     *,
     country: str | None = None,
-    avatar_base64: str | None = None,
+    avatar_url: str | None = None,
     external_links: dict | None = None,
 ) -> int:
     """Insert or update an artist row; returns its id."""
@@ -53,15 +53,15 @@ async def upsert_artist(
     slug = slugify(name)
     row = await pool.fetchrow(
         """
-        INSERT INTO artists (id, name, slug, country, avatar_base64, external_links)
+        INSERT INTO artists (id, name, slug, country, avatar_url, external_links)
         VALUES (nextval('artists_id_seq'), $1, $2, $3, $4, $5)
         ON CONFLICT (slug) DO UPDATE
             SET country        = COALESCE(EXCLUDED.country,        artists.country),
-                avatar_base64  = COALESCE(EXCLUDED.avatar_base64,  artists.avatar_base64),
+                avatar_url  = COALESCE(EXCLUDED.avatar_url,  artists.avatar_url),
                 external_links = COALESCE(EXCLUDED.external_links, artists.external_links)
         RETURNING id
         """,
-        name, slug, country, avatar_base64,
+        name, slug, country, avatar_url,
         json.dumps(external_links) if external_links else None,
     )
     return row["id"]
