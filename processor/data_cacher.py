@@ -1,11 +1,13 @@
+from __future__ import annotations
 import re
 import os
 import sys
-from pathlib import Path
-from typing import Optional, Tuple
-from yt_dlp.utils import DownloadError
-import anyascii
 import json
+from pathlib import Path
+from typing import Optional
+
+import anyascii
+from yt_dlp.utils import DownloadError
 
 from api.genius import download_cover_image, fetch_song_data
 from api.youtube import download_audio
@@ -14,154 +16,175 @@ from processor.alignment_engine import align_lyrics, detect_language
 from processor.audio_analyzer import analyze_audio
 from processor.quantizer import quantize_alignment
 from processor.color_analyzer import analyze_cover, image_to_base64
-from server.database import get_pool, get_track, upsert_track, insert_sync, upsert_album, get_sync
-
+from server.database import (
+    get_pool, get_track, upsert_artist, upsert_album, upsert_track,
+    insert_sync, get_sync,
+)
 
 try:
-    from config import SERVER_MODE, PIPELINE_DEBUG_ACTIVE, CLEAR_PIPELINE_ON_NEW_SONG, KEEP_PIPELINE_FILES, DATABASE_URL
+    from config import (
+        PIPELINE_DEBUG_ACTIVE, CLEAR_PIPELINE_ON_NEW_SONG,
+        KEEP_PIPELINE_FILES, DATABASE_URL,
+    )
 except ModuleNotFoundError:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
-    from config import SERVER_MODE, PIPELINE_DEBUG_ACTIVE, CLEAR_PIPELINE_ON_NEW_SONG, KEEP_PIPELINE_FILES, DATABASE_URL
+    from config import (
+        PIPELINE_DEBUG_ACTIVE, CLEAR_PIPELINE_ON_NEW_SONG,
+        KEEP_PIPELINE_FILES, DATABASE_URL,
+    )
 
-def _debug_print(*args: str, **kwargs: str):
+
+def _debug_print(*args, **kwargs):
     if PIPELINE_DEBUG_ACTIVE:
         print("[PIPELINE DEBUG]", *args, **kwargs)
 
-def _clean_song_dir(directory: str, keep_files: list[str]):
+
+def slugify(value: str) -> str:
+    s = anyascii.anyascii(value).strip().lower()
+    s = re.sub(r"\s+", "_", s)
+    s = re.sub(r"[^a-z0-9_\-]", "", s)
+    return s.strip("_")
+
+
+def _clean_song_dir(directory: Path, keep_files: list[Path]) -> None:
     for file_path in directory.iterdir():
-        if file_path.exists() and file_path not in keep_files:
+        if file_path not in keep_files:
             try:
                 file_path.unlink()
             except Exception as e:
                 _debug_print(f"Error deleting {file_path}: {e}")
-        
-def _slugify(value: str) -> str:
-    normalized = anyascii.anyascii(value)
-    normalized = normalized.strip().lower()
-    normalized = re.sub(r"\s+", "_", normalized)
-    normalized = re.sub(r"[^a-z0-9_\-]", "", normalized)
-    return normalized.strip("_")
 
-async def get_song_data(artist: str, title: str) -> Tuple[str, Path]:
+
+async def get_song_data(artist: str, title: str) -> Path:
     if CLEAR_PIPELINE_ON_NEW_SONG and PIPELINE_DEBUG_ACTIVE:
-        os.system('cls' if os.name == 'nt' else 'clear')
+        os.system("cls" if os.name == "nt" else "clear")
 
-    _debug_print(f"Proceeding song: {title} by {artist}")
-    pool = await get_pool(DATABASE_URL) # placeholder, will move to anpther script when moving away from windows.py root
+    _debug_print(f"Processing: {title} by {artist}")
 
-    folder_name = _slugify(f"{artist} {title}")
-    song_dir = Path("data") / folder_name
-    lyrics_path = song_dir / "lyrics.txt"
-    audio_path = song_dir / "song.mp3"
-    instrumental_path = song_dir / "instrumental.wav"
-    rhythm_path = song_dir / "rhythm.json"
-    vocals_path = song_dir / "vocals.wav"
-    alignment_path = song_dir / "alignment.json"
-    master_sync_path = song_dir / "master_sync.json"
-    cover_path = song_dir / "cover.jpg"
-    theme_path = song_dir / "theme.json"
-
+    pool = await get_pool(DATABASE_URL)
+    slug = slugify(f"{artist} {title}")
+    song_dir = Path("data") / slug
     song_dir.mkdir(parents=True, exist_ok=True)
-    audio_path.parent.mkdir(parents=True, exist_ok=True)
 
-    lyrics: str = ""
-    need_lyrics = not lyrics_path.exists()
-    need_cover = not cover_path.exists()
+    # paths
+    lyrics_path       = song_dir / "lyrics.txt"
+    audio_path        = song_dir / "song.mp3"
+    instrumental_path = song_dir / "instrumental.wav"
+    vocals_path       = song_dir / "vocals.wav"
+    rhythm_path       = song_dir / "rhythm.json"
+    alignment_path    = song_dir / "alignment.json"
+    master_sync_path  = song_dir / "master_sync.json"
+    cover_path        = song_dir / "cover.jpg"
+    theme_path        = song_dir / "theme.json"
+
+    # early exit if already processed
+    existing = await get_track(pool, slug)
+    if existing:
+        _debug_print("Track found in DB, skipping pipeline.")
+        return master_sync_path
+
+    # fetch metadata from Genius (one network call)
     fetched_lyrics: Optional[str] = None
     cover_url: Optional[str] = None
+    album_name: Optional[str] = None
+    release_date: Optional[str] = None
 
-    track_id = await get_track(pool, folder_name)
-    if track_id:
-        _debug_print("Found master_sync.json. proceeding...")
+    if not lyrics_path.exists() or not cover_path.exists():
+        fetched_lyrics, cover_url, album_name, release_date = fetch_song_data(artist, title)
+
+    # lyrics
+    if lyrics_path.exists():
+        _debug_print("Lyrics found.")
+        lyrics = lyrics_path.read_text(encoding="utf-8")
     else:
-        _debug_print("Couldnt find master_sync.json, catching up the whole pipeline...")
-        if need_lyrics or need_cover:
-            fetched_lyrics, cover_url, album_name, release_date = fetch_song_data(artist, title)
+        _debug_print("Downloading lyrics…")
+        lyrics = fetched_lyrics or ""
+        lyrics_path.write_text(lyrics, encoding="utf-8")
 
-        if lyrics_path.exists():
-            _debug_print("Lyrics found.")
-            lyrics = lyrics_path.read_text(encoding="utf-8")
-        else:
-            _debug_print("Lyrics not found, downloading...")
-            lyrics = fetched_lyrics or ""
-            lyrics_path.write_text(lyrics, encoding="utf-8")
-        
-        if lyrics_path.read_text(encoding="utf-8"):
-            is_instrumental = False
-        else:
-            is_instrumental = True
+    is_instrumental = not lyrics.strip()
 
-        if cover_path.exists():
-            _debug_print("Cover found.")
+    # cover
+    if not cover_path.exists():
+        if cover_url:
+            _debug_print("Downloading cover…")
+            download_cover_image(cover_url, cover_path)
         else:
-            _debug_print("Cover not found, downloading...")
-            if cover_url:
-                download_cover_image(cover_url, cover_path)
-                analyze_cover(cover_path)
-                _debug_print("Broke the cover down by primary colors...")
-            else:
-                _debug_print("Cover URL not found in Genius response.")
+            _debug_print("No cover URL from Genius.")
 
-        if audio_path.exists():
-            _debug_print("Audio found.")
-        else:
-            _debug_print("Audio not found, downloading...")
-            try:
-                audio_path = download_audio(artist, title, audio_path)
-            except DownloadError as e:
-                print(f"[LYRICA ERROR] Ошибка скачивания с YouTube: {e}")
+    if cover_path.exists():
+        analyze_cover(cover_path)
+        _debug_print("Cover colors analyzed.")
 
+    # audio
+    if not audio_path.exists():
+        _debug_print("Downloading audio…")
+        try:
+            audio_path = download_audio(artist, title, audio_path)
+        except DownloadError as e:
+            print(f"[LYRICA ERROR] YouTube download failed: {e}")
+
+    # source separation
+    if not is_instrumental:
         if instrumental_path.exists() and vocals_path.exists():
-            _debug_print("Vocals and Instrumental (separated) exist.")
-        elif is_instrumental:
-            _debug_print("Song is already instrumental, skipping separation...")
+            _debug_print("Separated audio exists.")
         else:
-            _debug_print("Vocals and instrumental not found, separating...")
+            _debug_print("Separating vocals…")
             get_vocals(audio_path, song_dir)
 
-        if rhythm_path.exists():
-            _debug_print("rhythm file exists.")
-        elif is_instrumental and audio_path.exists():
-            _debug_print("breaking down rhythm patterns using original audio...")
-            _, bpm, duration = analyze_audio(audio_path)
-        else:
-            _debug_print("breaking down rhythm patterns using instrumental...")
-            _, bpm, duration = analyze_audio(instrumental_path)
+    # rhythm analysis
+    bpm: Optional[float] = None
+    duration: Optional[float] = None
 
-        if alignment_path.exists():
-            _debug_print("alignment.json exists.")
-        elif is_instrumental:
-            _debug_print("Couldnt find the lyrics, the song is instrumental/lyrics do not exist.")
-        else:
-            _debug_print("Couldnt find alignment.json, aligning...")
+    if not rhythm_path.exists():
+        source = audio_path if is_instrumental else instrumental_path
+        if source.exists():
+            _debug_print(f"Analyzing rhythm from {source.name}…")
+            _, bpm, duration = analyze_audio(source)
+    else:
+        _debug_print("Rhythm file exists.")
+
+    # alignment
+    if not is_instrumental:
+        if not alignment_path.exists():
+            _debug_print("Aligning lyrics…")
             align_lyrics(vocals_path, lyrics_path)
-
-        if is_instrumental:
-            _debug_print("lyrics do not exist, skipping creation of master_alignment.")
         else:
-            _debug_print("parsing the alignment and rhythm to create master_sync.json...")
-            language = detect_language(lyrics)
-            quantize_alignment(alignment_path, rhythm_path, theme_path, title, artist, language)
-        
-        _debug_print("Filling up the database...")
-        cover_base64 = image_to_base64(Path(cover_path))
-        album_id = await upsert_album(pool, album_name, artist, cover_base64, release_date)
-        track_id = await upsert_track(pool, {
-            "title": title,
-            "artist": artist,
-            "slug": folder_name,
-            "bpm": bpm,
-            "album_id": album_id,
-            "duration": duration
-        })
-        if master_sync_path.exists():
-            with open(master_sync_path, "r", encoding="utf-8") as f:
-                json_data = json.load(f)
-                await insert_sync(pool, track_id, json_data, None)
+            _debug_print("Alignment exists.")
 
-        if not KEEP_PIPELINE_FILES:
-                keep = [None]
-                _clean_song_dir(song_dir, keep)
-                _debug_print("Cleaned leftover pipeline files.")
+        _debug_print("Building master_sync…")
+        language = detect_language(lyrics)
+        quantize_alignment(alignment_path, rhythm_path, theme_path, title, artist, language)
+
+    # write to DB (minimal round-trips)
+    _debug_print("Writing to DB…")
+
+    artist_id = await upsert_artist(pool, artist)
+
+    album_id: Optional[int] = None
+    if album_name:
+        album_id = await upsert_album(
+            pool, album_name, artist_id,
+            cover_url=cover_url,
+            release_date=release_date,
+        )
+
+    track_id = await upsert_track(pool, {
+        "title":    title,
+        "slug":     slug,
+        "album_id": album_id,
+        "bpm":      bpm,
+        "duration": duration,
+    })
+
+    if master_sync_path.exists():
+        with open(master_sync_path, encoding="utf-8") as f:
+            json_data = json.load(f)
+        await insert_sync(pool, track_id, json_data, created_by=None)
+
+    # cleanup
+    if not KEEP_PIPELINE_FILES:
+        keep = [master_sync_path]
+        _clean_song_dir(song_dir, keep)
+        _debug_print("Cleaned pipeline files.")
 
     return master_sync_path
