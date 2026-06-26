@@ -51,7 +51,7 @@ def fetch_song_data(artist: str, title: str) -> Tuple[Optional[str], Optional[st
         cover_url = getattr(song, "song_art_image_url", None)
         album_data = getattr(song, "album", None)
         album_name = album_data["name"]
-        release_date = album_data["release_date_for_display"]
+        release_date = album_data.get("release_date")
         return lyrics, cover_url, album_name, release_date
     except Exception as e:
         print(f"Genius API Error: {e}")
