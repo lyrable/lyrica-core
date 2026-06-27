@@ -39,12 +39,24 @@ def quantize_alignment(
     alignment_path: str | Path,
     rhythm_path: str | Path,
     theme_path: str | Path,
+    lyrics_path: str | Path,
     orig_name: str,
     orig_artist: str,
     lang: str,
     album_id: str | None = None,
     global_offset_seconds: float = GLOBAL_OFFSET_SECONDS,
 ) -> Path:
+    
+    lyrics_text = Path(lyrics_path).read_text(encoding="utf-8").strip()
+    lines = [line.strip() for line in lyrics_text.split('\n') if line.strip()]
+    
+    line_indices = []
+    word_idx = 0
+    for line in lines:
+        line_words = line.split()
+        line_indices.append(word_idx)
+        word_idx += len(line_words)
+
     alignment_file = Path(alignment_path)
 
     alignment_data = _load_json(alignment_file)
@@ -101,6 +113,7 @@ def quantize_alignment(
         "vibe": vibe,
         "theme": theme_data,
         "words": words,
+        "lines": line_indices,
     }
     if album_id:
         master["album_id"] = album_id

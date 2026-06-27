@@ -153,7 +153,7 @@ async def get_song_data(artist: str, title: str) -> Path:
 
         _debug_print("Building master_sync…")
         language = detect_language(lyrics)
-        quantize_alignment(alignment_path, rhythm_path, theme_path, title, artist, language)
+        quantize_alignment(alignment_path, rhythm_path, theme_path, lyrics_path, title, artist, language)
 
     # write to DB (minimal round-trips)
     _debug_print("Writing to DB…")

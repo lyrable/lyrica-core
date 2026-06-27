@@ -1,10 +1,9 @@
 import requests
-from config import PASSWORD
 
 url = "https://api.lyricapp.ru/tracks/get"
 payload = {
     "user_id": 1,
-    "password": PASSWORD,
+    "password": "pisasisa67",
     "slug": "valentin_strykalo_92"
 }
 
