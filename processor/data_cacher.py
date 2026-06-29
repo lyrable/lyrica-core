@@ -17,7 +17,7 @@ from processor.audio_analyzer import analyze_audio
 from processor.quantizer import quantize_alignment
 from processor.color_analyzer import analyze_cover, image_to_base64
 from server.database import (
-    get_pool, get_track, upsert_artist, upsert_album, upsert_track,
+    get_pool, get_track, link_track_artists, upsert_artist, upsert_album, upsert_track,
     insert_sync, get_sync,
 )
 
@@ -112,7 +112,7 @@ async def get_song_data(artist: str, title: str) -> Path:
             _debug_print("No cover URL from Genius.")
 
     if cover_path.exists():
-        analyze_cover(cover_path)
+        _, primary_color = analyze_cover(cover_path)
         _debug_print("Cover colors analyzed.")
 
     # audio
@@ -166,6 +166,7 @@ async def get_song_data(artist: str, title: str) -> Path:
             pool, album_name, artist_id,
             cover_url=cover_url,
             release_date=release_date,
+            primary_color=primary_color
         )
 
     track_id = await upsert_track(pool, {
@@ -173,8 +174,10 @@ async def get_song_data(artist: str, title: str) -> Path:
         "slug":     slug,
         "album_id": album_id,
         "bpm":      bpm,
-        "duration": duration,
+        "duration": duration
     })
+
+    await link_track_artists(pool, track_id, [artist_id])
 
     if master_sync_path.exists():
         with open(master_sync_path, encoding="utf-8") as f:

@@ -55,4 +55,4 @@ def analyze_cover(cover_path: str | Path) -> Path:
         json.dumps(theme_data, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    return output_path
+    return output_path, str(_rgb_to_hex(primary))

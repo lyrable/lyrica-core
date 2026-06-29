@@ -67,6 +67,24 @@ async def upsert_artist(
     return row["id"]
 
 
+async def link_track_artists(
+    pool: asyncpg.Pool,
+    track_id: int,
+    artist_ids: list[int],
+    *,
+    role: str = "primary",
+) -> None:
+    """Insert track_artists rows, skip duplicates."""
+    await pool.executemany(
+        """
+        INSERT INTO track_artists (track_id, artist_id, role)
+        VALUES ($1, $2, $3)
+        ON CONFLICT DO NOTHING
+        """,
+        [(track_id, artist_id, role) for artist_id in artist_ids],
+    )
+
+
 async def get_artist_by_slug(pool: asyncpg.Pool, slug: str) -> dict | None:
     return _row(await pool.fetchrow(
         "SELECT * FROM artists WHERE slug = $1", slug
@@ -83,6 +101,7 @@ async def upsert_album(
     cover_url: str | None = None,
     release_date: str | date | None = None,
     album_type: str = "album",
+    primary_color: str | None = None,
 ) -> int:
     """Upsert album + album_artists link in a single transaction."""
     release_date = _parse_release_date(release_date)
@@ -90,15 +109,16 @@ async def upsert_album(
         async with conn.transaction():
             row = await conn.fetchrow(
                 """
-                INSERT INTO albums (id, title, cover_url, release_date, album_type)
-                VALUES (nextval('albums_id_seq'), $1, $2, $3, $4)
-                ON CONFLICT (title)  -- add UNIQUE(title) or adjust key as needed
+                INSERT INTO albums (id, title, cover_url, release_date, album_type, primary_color)
+                VALUES (nextval('albums_id_seq'), $1, $2, $3, $4, $5)
+                ON CONFLICT (title)
                 DO UPDATE SET
-                    cover_url    = COALESCE(EXCLUDED.cover_url,    albums.cover_url),
-                    release_date = COALESCE(EXCLUDED.release_date, albums.release_date)
+                    cover_url     = COALESCE(EXCLUDED.cover_url,     albums.cover_url),
+                    release_date  = COALESCE(EXCLUDED.release_date,  albums.release_date),
+                    primary_color = COALESCE(EXCLUDED.primary_color, albums.primary_color)
                 RETURNING id
                 """,
-                title, cover_url, release_date, album_type,
+                title, cover_url, release_date, album_type, primary_color,
             )
             album_id = row["id"]
             await conn.execute(
