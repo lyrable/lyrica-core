@@ -11,6 +11,7 @@ from yt_dlp.utils import DownloadError
 
 from api.genius import download_cover_image, fetch_song_data
 from api.youtube import download_audio
+from config import WORKER_SECRET, SERVER_URL
 from processor.audio_separator import get_vocals
 from processor.alignment_engine import align_lyrics, detect_language
 from processor.audio_analyzer import analyze_audio
@@ -18,7 +19,7 @@ from processor.quantizer import quantize_alignment
 from processor.color_analyzer import analyze_cover, image_to_base64
 from server.database import (
     get_pool, get_track, link_track_artists, upsert_artist, upsert_album, upsert_track,
-    insert_sync, get_sync,
+    insert_sync, get_sync, upload_track_audio
 )
 
 try:
@@ -178,6 +179,16 @@ async def get_song_data(artist: str, title: str) -> Path:
     })
 
     await link_track_artists(pool, track_id, [artist_id])
+    """await upload_track_audio(
+        mp3_path=audio_path,
+        slug=slug,
+        track_id=track_id,
+        server_url=SERVER_URL,
+        worker_secret=WORKER_SECRET,
+        bitrate=None,
+        sample_rate=None,
+        duration=duration,
+    )"""
 
     if master_sync_path.exists():
         with open(master_sync_path, encoding="utf-8") as f:

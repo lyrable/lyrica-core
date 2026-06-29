@@ -3,6 +3,8 @@ import json
 from datetime import date, datetime
 from typing import Any
 import asyncpg
+import httpx
+from pathlib import Path
 
 _pool: asyncpg.Pool | None = None
 
@@ -74,7 +76,6 @@ async def link_track_artists(
     *,
     role: str = "primary",
 ) -> None:
-    """Insert track_artists rows, skip duplicates."""
     await pool.executemany(
         """
         INSERT INTO track_artists (track_id, artist_id, role)
@@ -209,3 +210,35 @@ async def get_sync(pool: asyncpg.Pool, track_id: int) -> dict | None:
     if isinstance(r["json_data"], str):
         r["json_data"] = json.loads(r["json_data"])
     return r
+
+
+
+async def upload_track_audio(
+    mp3_path: str | Path,
+    slug: str,
+    track_id: int,
+    *,
+    server_url: str,
+    worker_secret: str,
+    bitrate: int | None = None,
+    sample_rate: int | None = None,
+    duration: float | None = None,
+) -> None:
+    """Upload mp3 to server and register in track_files."""
+    mp3_path = Path(mp3_path)
+
+    async with httpx.AsyncClient() as client:
+        with mp3_path.open("rb") as f:
+            response = await client.post(
+                f"{server_url}/worker/upload_audio",
+                files={"file": (f"{slug}.mp3", f, "audio/mpeg")},
+                data={
+                    "track_id":    str(track_id),
+                    "bitrate":     str(bitrate or ""),
+                    "sample_rate": str(sample_rate or ""),
+                    "duration":    str(duration or ""),
+                },
+                headers={"X-Worker-Secret": worker_secret},
+                timeout=60.0,
+            )
+        response.raise_for_status()

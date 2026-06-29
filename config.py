@@ -21,6 +21,7 @@ VISUALISE_LYRICS = False # toggles lyrics display in console after the song has 
 load_dotenv()
 
 WORKER_SECRET = os.getenv("WORKER_SECRET").strip()
+SERVER_URL = os.getenv("SERVER_URL").strip()
 DATABASE_URL = os.getenv("DATABASE_URL").strip()
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL not set in .env")
